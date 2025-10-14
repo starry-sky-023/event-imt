@@ -1,0 +1,53 @@
+{
+	"name": "event-imt",
+	"version": "0.1.0",
+	"type": "module",
+	"main": "./dist/index.es.js",
+	"types": "./dist/index.es.d.ts",
+	"exports": {
+		".": {
+			"import": "./dist/index.es.js",
+			"require": "./dist/index.cjs.js"
+		}
+	},
+	"files": [
+		"dist",
+		"*.d.ts",
+		"README.md"
+	],
+	"description": "A publish subscribe module",
+	"keywords": [
+		"event-imt",
+		"event",
+		"bus",
+		"event-bus"
+	],
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/starry-sky-023/event-imt.git"
+	},
+	"homepage": "https://github.com/starry-sky-023/event-imt",
+	"author": "starry-sky",
+	"license": "MIT",
+	"scripts": {
+		"dev": "cross-env VITE_APP_PATH=./src/index.ts vite",
+		"test": "vitest",
+		"tests:dev": "cross-env VITE_APP_PATH=./tests/dev/index.ts vite",
+		"tests:pro": "cross-env VITE_APP_PATH=./tests/pro/index.js vite",
+		"build": "cross-env VITE_APP_PATH=./src/index.ts vite build",
+		"preview": "cross-env VITE_APP_PATH=./src/index.ts vite preview"
+	},
+	"devDependencies": {
+		"@types/node": "^20.14.2",
+		"cross-env": "^7.0.3",
+		"typescript": "^5.8.3",
+		"vite": "^6.3.5",
+		"vite-plugin-dts": "^4.5.4",
+		"vitest": "^3.1.3"
+	},
+	"pnpm": {
+		"onlyBuiltDependencies": [
+			"esbuild"
+		]
+	}
+}
