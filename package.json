@@ -1,6 +1,6 @@
 {
 	"name": "event-imt",
-	"version": "0.1.0",
+	"version": "0.2.0-alpha.1",
 	"type": "module",
 	"main": "./dist/index.es.js",
 	"types": "./dist/index.es.d.ts",
@@ -30,10 +30,8 @@
 	"author": "starry-sky",
 	"license": "MIT",
 	"scripts": {
-		"dev": "cross-env VITE_APP_PATH=./src/index.ts vite",
 		"test": "vitest",
-		"tests:dev": "cross-env VITE_APP_PATH=./tests/dev/index.ts vite",
-		"tests:pro": "cross-env VITE_APP_PATH=./tests/pro/index.js vite",
+		"dev": "cross-env VITE_APP_PATH=./tests/index.ts vite",
 		"build": "cross-env VITE_APP_PATH=./src/index.ts vite build",
 		"preview": "cross-env VITE_APP_PATH=./src/index.ts vite preview"
 	},

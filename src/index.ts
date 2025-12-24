@@ -7,7 +7,7 @@ import { isUndefined } from './utils/isUndefined/index.js'
 import { logError, logWarn } from './utils/log/index.js'
 
 export class Bus<E extends EventMapOption<E>> {
-	#eventMap = Object.create(null) as EventMap<E>
+	#eventMap: EventMap
 	#sendError: Options<E>['onError']
 	#sendWarn: Options<E>['onWarning']
 
@@ -16,7 +16,12 @@ export class Bus<E extends EventMapOption<E>> {
 	 * @param options 配置选项
 	 */
 	constructor(options?: Options<E>) {
-		const { events = Object.create(null), ctx, onError, onWarning } = options ?? {}
+		const { eventMap = new Map(), events = Object.create(null), ctx, onError, onWarning } = options ?? {}
+		if (!(eventMap instanceof Map)) {
+			throw new TypeError('eventMap must be a Map instance')
+		}
+		this.#eventMap = eventMap
+
 		if (!isObj(events)) {
 			throw new TypeError('events must be an object')
 		}
@@ -53,13 +58,22 @@ export class Bus<E extends EventMapOption<E>> {
 				throw new TypeError(`options.events.${String(key)} must be a function`)
 			}
 
-			// @ts-ignore
-			this.#eventMap[key] = callbackInfoList
+			this.#eventMap.set(key, callbackInfoList)
 		})
 
 		if (ctx) {
+			const eventMap = new Proxy(this.#eventMap, {
+				get(target, p) {
+					return target.get(p)
+				},
+				set(target, p, newValue) {
+					target.set(p, newValue)
+					return true
+				}
+			}) as Record<keyof E, CallbackInfo[]>
 			ctx.call(this, {
-				eventMap: this.#eventMap,
+				eventMap,
+				eventMapInstance: this.#eventMap as EventMap<E>,
 				self: this,
 				setSelf: (key: string | symbol, value: any) => {
 					// @ts-ignore
@@ -70,14 +84,11 @@ export class Bus<E extends EventMapOption<E>> {
 					if (!(isString(eventName) || isSymbol(eventName))) {
 						throw new TypeError(`eventName must be a string or symbol`)
 					}
-					delete this.#eventMap[eventName]
+					this.#eventMap.delete(eventName)
 					return this
 				},
 				clearAll: () => {
-					const eventMapKeys = Reflect.ownKeys(this.#eventMap)
-					eventMapKeys.forEach((key) => {
-						delete this.#eventMap[key]
-					})
+					this.#eventMap.clear()
 					return this
 				}
 			})
@@ -102,12 +113,13 @@ export class Bus<E extends EventMapOption<E>> {
 		}
 
 		const symbol: symbol = options.sign ?? Symbol()
-		if (!this.#eventMap[eventName]) {
-			// @ts-ignore
-			this.#eventMap[eventName] = []
+		let callbackInfoList = this.#eventMap.get(eventName)
+		if (!callbackInfoList) {
+			callbackInfoList = []
+			this.#eventMap.set(eventName, callbackInfoList)
 		}
 
-		this.#eventMap[eventName].push({
+		callbackInfoList.push({
 			once,
 			fn: callback,
 			sign: symbol
@@ -175,7 +187,7 @@ export class Bus<E extends EventMapOption<E>> {
 	 */
 	emit<K extends keyof E>(this: Bus<E>, eventName: string | symbol, ...args: Parameters<E[K]>): this
 	emit<K extends keyof E>(this: Bus<E>, eventName: string | symbol, ...args: Parameters<E[K]>) {
-		const callbackInfoArr = this.#eventMap[eventName]
+		const callbackInfoArr = this.#eventMap.get(eventName)
 		if (!callbackInfoArr) {
 			if (this.#sendWarn) {
 				this.#sendWarn('emit', 'notExist', eventName, args)
@@ -205,7 +217,7 @@ export class Bus<E extends EventMapOption<E>> {
 		}
 
 		if (!callbackInfoArr.length) {
-			delete this.#eventMap[eventName]
+			this.#eventMap.delete(eventName)
 		}
 		if (errorList.length) {
 			logError(errorList)
@@ -234,7 +246,7 @@ export class Bus<E extends EventMapOption<E>> {
 		...args: Parameters<E[K]>
 	): Promise<PromiseSettledResult<any>[]>
 	emitWait<K extends keyof E>(this: Bus<E>, eventName: string | symbol, ...args: Parameters<E[K]>) {
-		const callbackInfoArr = this.#eventMap[eventName]
+		const callbackInfoArr = this.#eventMap.get(eventName)
 		if (!callbackInfoArr) {
 			if (this.#sendWarn) {
 				this.#sendWarn('emitAwait', 'notExist', eventName, args)
@@ -268,7 +280,7 @@ export class Bus<E extends EventMapOption<E>> {
 		}
 
 		if (!callbackInfoArr.length) {
-			delete this.#eventMap[eventName]
+			this.#eventMap.delete(eventName)
 		}
 		return Promise.allSettled(task)
 	}
@@ -293,7 +305,7 @@ export class Bus<E extends EventMapOption<E>> {
 		...args: Parameters<E[K]>
 	): Promise<any[]>
 	async emitLineUp<K extends keyof E>(this: Bus<E>, eventName: string | symbol, ...args: Parameters<E[K]>) {
-		const callbackInfoArr = this.#eventMap[eventName]
+		const callbackInfoArr = this.#eventMap.get(eventName)
 		if (!callbackInfoArr) {
 			if (this.#sendWarn) {
 				this.#sendWarn('emitLineUp', 'notExist', eventName, args)
@@ -317,7 +329,7 @@ export class Bus<E extends EventMapOption<E>> {
 			throw error
 		} finally {
 			if (!callbackInfoArr.length) {
-				delete this.#eventMap[eventName]
+				this.#eventMap.delete(eventName)
 			}
 		}
 
@@ -351,7 +363,7 @@ export class Bus<E extends EventMapOption<E>> {
 		...args: Parameters<E[K]>
 	): Promise<({ status: 'fulfilled'; value: any } | { status: 'rejected'; reason: any })[]>
 	async emitLineUpCaptureErr<K extends keyof E>(this: Bus<E>, eventName: string | symbol, ...args: Parameters<E[K]>) {
-		const callbackInfoArr = this.#eventMap[eventName]
+		const callbackInfoArr = this.#eventMap.get(eventName)
 		if (!callbackInfoArr) {
 			if (this.#sendWarn) {
 				this.#sendWarn('emitAwait', 'notExist', eventName, args)
@@ -385,7 +397,7 @@ export class Bus<E extends EventMapOption<E>> {
 		}
 
 		if (!callbackInfoArr.length) {
-			delete this.#eventMap[eventName]
+			this.#eventMap.delete(eventName)
 		}
 		return task
 	}
@@ -407,8 +419,8 @@ export class Bus<E extends EventMapOption<E>> {
 	 * @param eventName 事件名称
 	 * @param ref 回调函数引用或回调标识
 	 */
-	off<K extends keyof E>(eventName: K, ref: symbol | Callback): this {
-		const callbackInfoArr = this.#eventMap[eventName]
+	off(eventName: string | symbol, ref: symbol | Callback): this {
+		const callbackInfoArr = this.#eventMap.get(eventName)
 		if (!callbackInfoArr) {
 			if (this.#sendWarn) {
 				this.#sendWarn('off', 'notExist', eventName as string | symbol, ref)
@@ -435,7 +447,7 @@ export class Bus<E extends EventMapOption<E>> {
 		}
 
 		if (!callbackInfoArr.length) {
-			delete this.#eventMap[eventName]
+			this.#eventMap.delete(eventName)
 		}
 		return this
 	}
@@ -449,21 +461,29 @@ export class Bus<E extends EventMapOption<E>> {
 			throw new TypeError('sign must be a symbol')
 		}
 
-		const eventMapKeys = Reflect.ownKeys(this.#eventMap)
-		eventMapKeys.forEach((key) => {
-			const callbackInfoArr = this.#eventMap[key] ?? []
+		let isExist = false
+		for (const [eventName, callbackInfoArr] of this.#eventMap.entries()) {
 			for (let i = 0; i < callbackInfoArr.length; i++) {
 				if (callbackInfoArr[i].sign === sign) {
+					isExist = true
 					callbackInfoArr.splice(i, 1)
 					i--
 				}
-			}
 
-			if (!callbackInfoArr.length) {
-				delete this.#eventMap[key]
+				if (!callbackInfoArr.length) {
+					this.#eventMap.delete(eventName)
+				}
 			}
-		})
+		}
 
+		if (!isExist) {
+			if (this.#sendWarn) {
+				this.#sendWarn('off', 'notExist', sign, sign)
+			} else {
+				logWarn(`EventBus(warn): eventName -> '${String(sign)}' is not exist`)
+			}
+			return this
+		}
 		return this
 	}
 
@@ -481,8 +501,8 @@ export class Bus<E extends EventMapOption<E>> {
 	 * 判断一个事件是否存在
 	 * @param eventName 事件名称
 	 */
-	has<K extends keyof E>(eventName: K): boolean {
-		return !!this.#eventMap[eventName]
+	has(eventName: string | symbol): boolean {
+		return this.#eventMap.has(eventName)
 	}
 
 	/**
@@ -502,8 +522,8 @@ export class Bus<E extends EventMapOption<E>> {
 	 * @param eventName 事件名称
 	 * @param ref 回调函数引用或回调标识
 	 */
-	hasCallback<K extends keyof E>(eventName: K, ref: symbol | Callback): boolean {
-		const callbackInfoArr = this.#eventMap[eventName]
+	hasCallback(eventName: string | symbol, ref: symbol | Callback): boolean {
+		const callbackInfoArr = this.#eventMap.get(eventName)
 		if (!callbackInfoArr) {
 			return false
 		}
@@ -516,7 +536,6 @@ export class Bus<E extends EventMapOption<E>> {
 		} else {
 			throw new TypeError('ref must be a symbol or function')
 		}
-
 		return callbackInfoArr.some((callbackInfo) => callbackInfo[refField] === ref)
 	}
 
@@ -525,9 +544,7 @@ export class Bus<E extends EventMapOption<E>> {
 	 * @param sign 回调标识
 	 */
 	hasCallbackBySign(sign: symbol): boolean {
-		const eventMapKeys = Reflect.ownKeys(this.#eventMap)
-		for (let i = 0; i < eventMapKeys.length; i++) {
-			const callbackInfoArr = this.#eventMap[eventMapKeys[i]]
+		for (const callbackInfoArr of this.#eventMap.values()) {
 			if (callbackInfoArr.some((callbackInfo) => callbackInfo.sign === sign)) {
 				return true
 			}

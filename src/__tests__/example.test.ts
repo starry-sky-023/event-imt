@@ -24,6 +24,7 @@ describe('new Event()', () => {
 		let clear: (eventName: string | symbol) => void
 		const event = new Bus({
 			ctx(ctx) {
+				ctx.eventMap
 				ctx.setSelf('a', 1)
 				clearAll = ctx.clearAll
 				clear = ctx.clear

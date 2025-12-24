@@ -12,6 +12,8 @@ interface EventCallback {
 export interface Options<E extends EventMapOption<E>> {
 	/** 事件配置对象, key 为事件名, 支持 symbol */
 	events?: E
+	/** 事件 map, 传递 map 实例将直接操作此 map */
+	eventMap?: EventMap<E>
 	/** 实例上下文, 通过该钩子可以最大限度操作 EventBus 的实例 */
 	ctx?: (this: Bus<E>, ctx: EventCtx<E, EventMap<E>>) => void
 	onError?: EventCallback
@@ -30,12 +32,7 @@ export interface Callback<Self = Bus<any>, Return = any> {
 	(this: Self, ...args: any[]): Return
 }
 
-export type EventMap<T = any> = {
-	[K in keyof T]: CallbackInfo[]
-} & {
-	[k: string]: CallbackInfo[]
-	[k: symbol]: CallbackInfo[]
-}
+export type EventMap<T = any> = Map<keyof T, CallbackInfo[]>
 
 export interface CallbackInfo {
 	once: boolean
@@ -44,29 +41,39 @@ export interface CallbackInfo {
 }
 
 export interface EventCtx<E extends EventMapOption<E>, EM extends EventMap> {
-	/** 解析后的事件对象 */
-	eventMap: EM
+	/**
+	 * @deprecated 请直接操作 eventMapInstance
+	 * - 事件 map 的代理对象
+	 * - 仅为向后兼容，请直接操作 eventMapInstance
+	 */
+	eventMap: Record<keyof E, CallbackInfo[]>
+	/** 事件 map */
+	eventMapInstance: EM
 	/** 实例引用 */
 	self: Bus<E>
 	/** 设置实例属性 */
 	setSelf(key: string | symbol, value: any): any
 	/**
-	 * 清除一个事件
+	 * @deprecated 请直接操作 eventMapInstance
+	 * - 清除一个事件
 	 * @param eventName 事件名称
 	 */
 	clear(eventName: string | symbol): void
 	/**
-	 * 清除一个事件
+	 * @deprecated 请直接操作 eventMapInstance
+	 * - 清除一个事件
 	 * @param eventName 事件名称
 	 */
 	clear(eventName: keyof E): void
 	/**
-	 * 清除一个事件
+	 * @deprecated 请直接操作 eventMapInstance
+	 * - 清除一个事件
 	 * @param eventName 事件名称
 	 */
 	clear(eventName: string | symbol): void
 	/**
-	 * 清除所有事件
+	 * @deprecated 请直接操作 eventMapInstance
+	 * - 清除所有事件
 	 */
 	clearAll(): void
 }

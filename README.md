@@ -26,6 +26,7 @@ npm i event-imt
 
 ```js
 import Bus from 'event-imt'
+// 或者 import { Bus } from 'event-imt'
 
 const bus = new Bus()
 
@@ -80,10 +81,10 @@ const bus = new Bus({
 
 	/** 实例上下文 hook */
 	ctx(ctx) {
-		// ctx.clear('a') // 清除指定事件
-		// ctx.clearAll() // 清除所有事件
-		// ctx.state // 状态对象
-		// ctx.eventMap // 解析后的事件对象
+		// ctx.clear('a') // 清除指定事件(仅用于向后兼容)
+		// ctx.clearAll() // 清除所有事件(仅用于向后兼容)
+		// ctx.eventMap // 事件对象(仅用于向后兼容)
+		// ctx.eventMapInstance // 事件 Map 实例
 		// ctx.self // 当前实例
 		// ctx.setSelf('d', 1) // 设置实例属性(避免ts警告)
 	}
@@ -313,10 +314,10 @@ const bus = new Bus({
 
 -   ctx 上下文对象
 
-    -   ctx.clear(eventName) // 清除指定事件
-    -   ctx.clearAll() // 清除所有事件
-    -   ctx.state // 状态对象
-    -   ctx.eventMap // 解析后的事件对象
+    -   ctx.clear(eventName) // 清除指定事件(仅用于向后兼容)
+    -   ctx.clearAll() // 清除所有事件(仅用于向后兼容)
+    -   ctx.eventMap // 事件对象(仅用于向后兼容)
+    -   ctx.eventMapInstance // 事件 Map 实例
     -   ctx.self // 当前实例
     -   ctx.setSelf(prop, value) // 设置实例属性(避免 ts 警告)
 
@@ -326,7 +327,7 @@ const bus = new Bus({
 
 示例 1
 
-直接在创建实例时传递类型
+直接在创建实例时传递类型, 使用 type
 
 ```ts
 type BusEvent = {
@@ -342,10 +343,28 @@ bus.emit('sum', 1, 2) // 类型推导
 
 示例 2
 
+直接在创建实例时传递类型, 使用 interface
+
+```ts
+interface BusEvent {
+	[k: symbol]: (...args: any[]) => any
+	sum?(a: number, b: number): number
+	set?(str: 'a' | 'b'): string
+	send?(msg: any): void
+}
+
+const bus = new Bus<BusEvent>()
+bus.on('sum', (a, b) => {}) // 类型推导
+bus.emit('sum', 1, 2) // 类型推导
+```
+
+示例 3
+
 通过继承扩展
 
 ```ts
-type BusEvent = {
+interface BusEvent {
+	[k: symbol]: (...args: any[]) => any
 	sum?(a: number, b: number): number
 	set?(str: 'a' | 'b'): string
 	send?(msg: any): void
@@ -360,36 +379,6 @@ test.on('sum', (a, b) => {
 test.emit('sum', 1, 2)
 ```
 
-示例 3
-
-属性挂载, 并通过泛型提供扩展
-
-```ts
-type BusEvent = {
-	sum?(a: number, b: number): number
-	set?(str: 'a' | 'b'): string
-	send?(msg: any): void
-}
-
-class MyBus<E extends Record<string, (...args: any[]) => any> = {}> {
-	private _bus: Bus<BusEvent<this>>
-
-	/** 事件总线 */
-	get bus(): Bus<BusEvent<this> & E> {
-		return this._bus as Bus<BusEvent<this> & E>
-	}
-}
-
-type BusEvent2 = {
-	multiply?(a: number, b: number): number
-}
-const test = new MyBus<BusEvent2>()
-test.on('sum', (a, b) => {
-	console.log(a, b)
-})
-test.emit('sum', 1, 2)
-```
-
 示例 4
 
 js 中自定义类型, 创建 `TS` 文件然后通过 `JSDOC` 导入, 或直接在 `JSDOC` 中编写
@@ -397,6 +386,7 @@ js 中自定义类型, 创建 `TS` 文件然后通过 `JSDOC` 导入, 或直接�
 ```ts
 // type.ts
 export interface BusEvent {
+	[k: symbol]: (...args: any[]) => any
 	sum?(a: number, b: number): number
 }
 ```
@@ -415,7 +405,7 @@ bus1.on('sum', (a, b) => {
 
 /**
  * 在文档注释中引入类型
- * 如果引入丢失, 尝试更改导入扩展名, `.ts` 或 `.js` 或 不添加
+ * 如果引入丢失或类型报错, 尝试更改导入扩展名, `.ts` 或 `.js` 或 不添加
  * @type {Bus<import('./type.ts').BusEvent>}
  */
 const bus2 = new Bus()

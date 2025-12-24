@@ -15,6 +15,11 @@ export default defineConfig({
 			fileName(format, _entryName) {
 				return `index.${format}.js`
 			}
+		},
+		rollupOptions: {
+			output: {
+				exports: 'named'
+			}
 		}
 	},
 
