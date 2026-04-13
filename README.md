@@ -22,6 +22,10 @@ yarn add event-imt
 npm i event-imt
 ```
 
+**使用 CDN**
+
+参考 [使用 CDN](https://github.com/starry-sky-023/event-imt/blob/master/tests/cdn.html)
+
 ## 使用
 
 ```js

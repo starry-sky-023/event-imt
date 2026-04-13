@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Document</title>
+	</head>
+	<body>
+		<script src="https://unpkg.com/event-imt@0.2.4/dist/index.umd.js"></script>
+		<!-- 或者 -->
+		<!-- <script src="https://cdn.jsdelivr.net/npm/event-imt@0.2.4/dist/index.umd.js"></script> -->
+		<script>
+			const { Bus } = globalThis.EventImt
+			const bus = new Bus({
+				events: {
+					send(msg, op) {
+						console.log('send event:', msg, op)
+					}
+				},
+				ctx(ctx) {
+					console.log(ctx)
+				}
+			})
+
+			bus.emit('send', 'Hello, World!', { a: 1 })
+			console.log('bus', bus)
+		</script>
+	</body>
+</html>
