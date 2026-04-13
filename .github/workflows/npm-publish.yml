@@ -4,17 +4,28 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 on:
-  push:
-    tags:
-      - '*'
+  workflow_run:
+    workflows:
+      - CI Test and Create Tag
+    types:
+      - completed
+    branches:
+      - master
+
+permissions:
+  contents: read
 
 jobs:
   publish:
+    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v5
@@ -38,11 +49,10 @@ jobs:
         shell: bash
         run: |
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
-          TAG_NAME="${GITHUB_REF_NAME}"
+          TAG_NAME="v${PACKAGE_VERSION}"
 
-          if [ "$TAG_NAME" != "$PACKAGE_VERSION" ] && [ "$TAG_NAME" != "v$PACKAGE_VERSION" ]; then
-            echo "Tag ${TAG_NAME} does not match package.json version ${PACKAGE_VERSION}."
-            echo "Use either ${PACKAGE_VERSION} or v${PACKAGE_VERSION} as the release tag."
+          if ! git ls-remote --tags origin "refs/tags/${TAG_NAME}" | grep -q "refs/tags/${TAG_NAME}$"; then
+            echo "Expected release tag ${TAG_NAME} was not found on origin."
             exit 1
           fi
 
