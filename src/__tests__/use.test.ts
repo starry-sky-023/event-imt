@@ -82,6 +82,20 @@ describe('off() and offBySign()', () => {
 		event.emit('push')
 		expect(numList).toEqual([1])
 	})
+
+	it('should output warning when call "off()" event name not exist', () => {
+		let isWarning = false
+		const bus = new Bus({
+			onWarning() {
+				isWarning = true
+			},
+			events: {
+				test() {}
+			}
+		})
+		bus.off('test', Symbol())
+		expect(isWarning).toBe(true)
+	})
 })
 
 describe('has() and hasCallback() and hasCallbackBySign()', () => {

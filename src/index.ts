@@ -192,7 +192,7 @@ export class Bus<E extends EventMapOption<E>> {
 			if (this.#sendWarn) {
 				this.#sendWarn('emit', 'notExist', eventName, args)
 			} else {
-				logWarn(`EventBus(warn): eventName -> '${String(eventName)}' is not exist`)
+				logWarn(`event-imt(warn): eventName -> '${String(eventName)}' is not exist`)
 			}
 			return this
 		}
@@ -251,7 +251,7 @@ export class Bus<E extends EventMapOption<E>> {
 			if (this.#sendWarn) {
 				this.#sendWarn('emitAwait', 'notExist', eventName, args)
 			} else {
-				logWarn(`EventBus(warn): eventName -> '${String(eventName)}' is not exist`)
+				logWarn(`event-imt(warn): eventName -> '${String(eventName)}' is not exist`)
 			}
 			return Promise.allSettled([])
 		}
@@ -310,7 +310,7 @@ export class Bus<E extends EventMapOption<E>> {
 			if (this.#sendWarn) {
 				this.#sendWarn('emitLineUp', 'notExist', eventName, args)
 			} else {
-				logWarn(`EventBus(warn): eventName -> '${String(eventName)}' is not exist`)
+				logWarn(`event-imt(warn): eventName -> '${String(eventName)}' is not exist`)
 			}
 			return Promise.allSettled([])
 		}
@@ -368,7 +368,7 @@ export class Bus<E extends EventMapOption<E>> {
 			if (this.#sendWarn) {
 				this.#sendWarn('emitAwait', 'notExist', eventName, args)
 			} else {
-				logWarn(`EventBus(warn): eventName -> '${String(eventName)}' is not exist`)
+				logWarn(`event-imt(warn): eventName -> '${String(eventName)}' is not exist`)
 			}
 			return Promise.allSettled([])
 		}
@@ -425,7 +425,7 @@ export class Bus<E extends EventMapOption<E>> {
 			if (this.#sendWarn) {
 				this.#sendWarn('off', 'notExist', eventName as string | symbol, ref)
 			} else {
-				logWarn(`EventBus(warn): eventName -> '${String(eventName)}' is not exist`)
+				logWarn(`event-imt(warn): eventName -> '${String(eventName)}' is not exist`)
 			}
 			return this
 		}
@@ -439,8 +439,10 @@ export class Bus<E extends EventMapOption<E>> {
 			throw new TypeError('ref must be a symbol or function')
 		}
 
+		let isExist = false
 		for (let i = 0; i < callbackInfoArr.length; i++) {
 			if (callbackInfoArr[i][refField] === ref) {
+				isExist = true
 				callbackInfoArr.splice(i, 1)
 				i--
 			}
@@ -448,6 +450,14 @@ export class Bus<E extends EventMapOption<E>> {
 
 		if (!callbackInfoArr.length) {
 			this.#eventMap.delete(eventName)
+		}
+
+		if (!isExist) {
+			if (this.#sendWarn) {
+				this.#sendWarn('off', 'notExist', eventName as string | symbol, ref)
+			} else {
+				logWarn(`event-imt(warn): eventName -> '${String(eventName)}' is not exist`)
+			}
 		}
 		return this
 	}
@@ -480,7 +490,7 @@ export class Bus<E extends EventMapOption<E>> {
 			if (this.#sendWarn) {
 				this.#sendWarn('off', 'notExist', sign, sign)
 			} else {
-				logWarn(`EventBus(warn): eventName -> '${String(sign)}' is not exist`)
+				logWarn(`event-imt(warn): eventName -> '${String(sign)}' is not exist`)
 			}
 			return this
 		}
