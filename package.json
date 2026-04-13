@@ -1,6 +1,6 @@
 {
 	"name": "event-imt",
-	"version": "0.2.4",
+	"version": "0.2.5",
 	"type": "module",
 	"sideEffects": false,
 	"types": "./dist/index.es.d.ts",
