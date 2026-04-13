@@ -93,3 +93,8 @@ export interface OnOptions {
 	/** 自定义标识 */
 	sign?: symbol
 }
+
+/** 将 interface 类型转换为 type */
+export type InterfaceToType<T> = {
+	[K in keyof T]: T[K]
+}

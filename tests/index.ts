@@ -1,9 +1,17 @@
 import Bus from '../dist/index.es.js'
 
-const bus = new Bus({
+interface MyEvents {
+	send?: (msg: string, op: { a: number }) => void
+}
+
+type InterfaceToType<T> = {
+	[K in keyof T]: T[K]
+}
+
+const bus = new Bus<InterfaceToType<MyEvents>>({
 	events: {
-		send(msg: string) {
-			console.log('send event:', msg)
+		send(msg: string, op: { a: number }) {
+			console.log('send event:', msg, op)
 		}
 	},
 	ctx(ctx) {
@@ -11,4 +19,5 @@ const bus = new Bus({
 	}
 })
 
+bus.emit('send', 'Hello, World!', { a: 1 })
 console.log('bus', bus)

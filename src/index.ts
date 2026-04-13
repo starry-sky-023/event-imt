@@ -13,6 +13,7 @@ export class Bus<E extends EventMapOption<E>> {
 
 	/**
 	 * 一个发布订阅模块
+	 * - 通过泛型可约束事件类型, 默认支持 type 定义的类型, 若使用 interface 定义的类型, 需要配合 InterfaceToType 辅助类型
 	 * @param options 配置选项
 	 */
 	constructor(options?: Options<E>) {
