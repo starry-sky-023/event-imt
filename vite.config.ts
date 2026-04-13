@@ -10,8 +10,8 @@ export default defineConfig({
 		target: 'es2015',
 		lib: {
 			entry: process.env.VITE_APP_PATH as string,
-			name: 'eventImt',
-			formats: ['es', 'cjs'],
+			name: 'EventImt',
+			formats: ['es', 'cjs', 'umd', 'iife'],
 			fileName(format, _entryName) {
 				return `index.${format}.js`
 			}
