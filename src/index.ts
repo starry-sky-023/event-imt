@@ -564,4 +564,8 @@ export class Bus<E extends EventMapOption<E>> {
 }
 
 export type * from './types/index.js'
+/**
+ * @deprecated Please use named import { Bus } from 'event-imt' instead of default import
+ * - 默认导出将在未来版本中移除
+ */
 export default Bus
