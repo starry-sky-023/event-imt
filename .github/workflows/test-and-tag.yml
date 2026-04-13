@@ -1,4 +1,4 @@
-name: CI Test Tag And Publish
+name: CI Test and Create Tag
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -39,9 +39,6 @@ jobs:
   create_tag:
     needs: test
     runs-on: ubuntu-latest
-    outputs:
-      package_version: ${{ steps.release_tag.outputs.package_version }}
-      tag_name: ${{ steps.release_tag.outputs.tag_name }}
 
     steps:
       - name: Checkout code
@@ -92,69 +89,3 @@ jobs:
       - name: Tag skipped
         if: steps.tag_check.outputs.should_create != 'true'
         run: echo "Release tag already exists, nothing to create."
-
-  publish:
-    needs: create_tag
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-        with:
-          ref: ${{ github.sha }}
-          fetch-depth: 0
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v5
-        with:
-          version: 9
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 24
-          registry-url: https://registry.npmjs.org
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build package
-        run: pnpm build
-
-      - name: Validate release tag
-        shell: bash
-        run: |
-          TAG_NAME="${{ needs.create_tag.outputs.tag_name }}"
-
-          if ! git ls-remote --tags origin "refs/tags/${TAG_NAME}" | grep -q "refs/tags/${TAG_NAME}$"; then
-            echo "Expected release tag ${TAG_NAME} was not found on origin."
-            exit 1
-          fi
-
-      - name: Check npm version
-        id: npm_check
-        shell: bash
-        run: |
-          PACKAGE_NAME=$(node -p "require('./package.json').name")
-          PACKAGE_VERSION=$(node -p "require('./package.json').version")
-          echo "package_name=$PACKAGE_NAME" >> "$GITHUB_OUTPUT"
-          echo "package_version=$PACKAGE_VERSION" >> "$GITHUB_OUTPUT"
-
-          if npm view "${PACKAGE_NAME}@${PACKAGE_VERSION}" version >/dev/null 2>&1; then
-            echo "should_publish=false" >> "$GITHUB_OUTPUT"
-            echo "${PACKAGE_NAME}@${PACKAGE_VERSION} already exists on npm, skipping publish."
-          else
-            echo "should_publish=true" >> "$GITHUB_OUTPUT"
-            echo "${PACKAGE_NAME}@${PACKAGE_VERSION} is not published yet."
-          fi
-
-      - name: Publish to npm
-        if: steps.npm_check.outputs.should_publish == 'true'
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish
-
-      - name: Publish skipped
-        if: steps.npm_check.outputs.should_publish != 'true'
-        run: echo "No new npm version to publish."
