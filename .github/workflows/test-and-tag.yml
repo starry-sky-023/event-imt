@@ -1,0 +1,91 @@
+name: CI Test and Create Tag
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+on:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run unit tests
+        run: pnpm test -- --run
+
+  create_tag:
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Resolve release tag
+        id: release_tag
+        shell: bash
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          TAG_NAME="v${PACKAGE_VERSION}"
+
+          echo "package_version=$PACKAGE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Check existing tag
+        id: tag_check
+        shell: bash
+        run: |
+          TAG_NAME="${{ steps.release_tag.outputs.tag_name }}"
+
+          if git ls-remote --tags origin "refs/tags/${TAG_NAME}" | grep -q "refs/tags/${TAG_NAME}$"; then
+            echo "should_create=false" >> "$GITHUB_OUTPUT"
+            echo "Tag ${TAG_NAME} already exists, skipping creation."
+          else
+            echo "should_create=true" >> "$GITHUB_OUTPUT"
+            echo "Tag ${TAG_NAME} does not exist yet."
+          fi
+
+      - name: Create and push tag
+        if: steps.tag_check.outputs.should_create == 'true'
+        shell: bash
+        run: |
+          TAG_NAME="${{ steps.release_tag.outputs.tag_name }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "$TAG_NAME"
+          git push origin "$TAG_NAME"
+
+      - name: Tag skipped
+        if: steps.tag_check.outputs.should_create != 'true'
+        run: echo "Release tag already exists, nothing to create."
