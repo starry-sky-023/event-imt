@@ -1,11 +1,24 @@
 import type Bus from '../index.js'
 
-interface EventCallback {
-	(from: 'emit', type: 'notExist' | 'execError', eventName: string | symbol, args: any[]): void
-	(from: 'emitAwait', type: 'notExist' | 'execError', eventName: string | symbol, args: any[]): void
+export interface OnExecuteErrorHandler {
+	(from: 'emit', type: 'execError', eventName: string | symbol, args: any[], error: any): void
+}
+
+export interface OnWarningHandler {
+	(from: 'emit', type: 'notExist', eventName: string | symbol, args: any[]): void
+	(from: 'emitAwait', type: 'notExist', eventName: string | symbol, args: any[]): void
 	(from: 'emitLineUp', type: 'notExist', eventName: string | symbol, args: any[]): void
 	(from: 'emitLineUpCaptureErr', type: 'notExist', eventName: string | symbol, args: any[]): void
 	(from: 'off', type: 'notExist', eventName: string | symbol, ref: symbol | Callback): void
+	(from: 'offBySign', type: 'notExist', ref: symbol | Callback): void
+}
+
+export interface EventImtExecuteErrorCtx {
+	from: Parameters<OnExecuteErrorHandler>[0]
+	type: Parameters<OnExecuteErrorHandler>[1]
+	eventName: Parameters<OnExecuteErrorHandler>[2]
+	args: Parameters<OnExecuteErrorHandler>[3]
+	error: Parameters<OnExecuteErrorHandler>[4]
 }
 
 /** 配置选项 */
@@ -16,8 +29,13 @@ export interface Options<E extends EventMapOption<E>> {
 	eventMap?: EventMap<E>
 	/** 实例上下文, 通过该钩子可以最大限度操作 EventBus 的实例 */
 	ctx?: (this: Bus<E>, ctx: EventCtx<E, EventMap<E>>) => void
-	onError?: EventCallback
-	onWarning?: EventCallback
+	/**
+	 * 当事件处理出错时的处理器
+	 * - 默认情况下出错会抛出错误, 通过该选项可以重写错误处理逻辑
+	 */
+	onError?: OnExecuteErrorHandler
+	/** 当事件处理警告时(事件不存在)的处理器 */
+	onWarning?: OnWarningHandler
 }
 
 /** 事件配置对象, key 为事件名, 支持 symbol */

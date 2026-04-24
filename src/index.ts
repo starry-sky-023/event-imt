@@ -1,15 +1,27 @@
-import type { EventMapOption, Options, Callback, OnOptions, CallbackInfo, EventMap } from './types/index.js'
-import { isObj } from './utils/isObj/index.js'
-import { isString } from './utils/isString/index.js'
-import { isSymbol } from './utils/isSymbol/index.js'
-import { isFunction } from './utils/isFunction/index.js'
-import { isUndefined } from './utils/isUndefined/index.js'
-import { logError, logWarn } from './utils/log/index.js'
+import type {
+	EventMapOption,
+	Options,
+	Callback,
+	OnOptions,
+	CallbackInfo,
+	EventMap,
+	OnExecuteErrorHandler,
+	OnWarningHandler
+} from './types/index.js'
+import {
+	isObj,
+	isString,
+	isSymbol,
+	isFunction,
+	isUndefined,
+	defaultOutputError,
+	defaultOutputWarn
+} from './utils/index.js'
 
 export class Bus<E extends EventMapOption<E>> {
 	#eventMap: EventMap
-	#sendError: Options<E>['onError']
-	#sendWarn: Options<E>['onWarning']
+	#outputError: OnExecuteErrorHandler
+	#outputWarn: OnWarningHandler
 
 	/**
 	 * 一个发布订阅模块
@@ -29,18 +41,22 @@ export class Bus<E extends EventMapOption<E>> {
 
 		if (!isUndefined(onError)) {
 			if (isFunction(onError)) {
-				this.#sendError = onError
+				this.#outputError = onError
 			} else {
 				throw new TypeError('options.onError must be a function')
 			}
+		} else {
+			this.#outputError = defaultOutputError
 		}
 
 		if (!isUndefined(onWarning)) {
 			if (isFunction(onWarning)) {
-				this.#sendWarn = onWarning
+				this.#outputWarn = onWarning
 			} else {
 				throw new TypeError('options.onWarning must be a function')
 			}
+		} else {
+			this.#outputWarn = defaultOutputWarn as OnWarningHandler
 		}
 
 		const eventMapKeys = Reflect.ownKeys(events)
@@ -190,11 +206,7 @@ export class Bus<E extends EventMapOption<E>> {
 	emit<K extends keyof E>(this: Bus<E>, eventName: string | symbol, ...args: Parameters<E[K]>) {
 		const callbackInfoArr = this.#eventMap.get(eventName)
 		if (!callbackInfoArr) {
-			if (this.#sendWarn) {
-				this.#sendWarn('emit', 'notExist', eventName, args)
-			} else {
-				logWarn(`event-imt(warn): eventName -> '${String(eventName)}' is not exist`)
-			}
+			this.#outputWarn('emit', 'notExist', eventName, args)
 			return this
 		}
 
@@ -204,11 +216,7 @@ export class Bus<E extends EventMapOption<E>> {
 			try {
 				fn.call(this, ...args)
 			} catch (error) {
-				if (this.#sendError) {
-					this.#sendError('emit', 'execError', eventName, args)
-				} else {
-					errorList.push(error)
-				}
+				errorList.push(error)
 			} finally {
 				if (once) {
 					callbackInfoArr.splice(i, 1)
@@ -221,7 +229,7 @@ export class Bus<E extends EventMapOption<E>> {
 			this.#eventMap.delete(eventName)
 		}
 		if (errorList.length) {
-			logError(errorList)
+			this.#outputError('emit', 'execError', eventName, args, errorList)
 		}
 		return this
 	}
@@ -237,7 +245,7 @@ export class Bus<E extends EventMapOption<E>> {
 		...args: Parameters<E[K]>
 	): Promise<PromiseSettledResult<any>[]>
 	/**
-	 * 触发指定事件, 返回一个 Promise, 所有回调敲定后 resolve()
+	 * 触发指定事件, 返回一个 Promise 内容为结果数组, 所有回调敲定后才进行 resolve()
 	 * @param eventName 事件名称
 	 * @param args 参数列表
 	 */
@@ -249,11 +257,7 @@ export class Bus<E extends EventMapOption<E>> {
 	emitWait<K extends keyof E>(this: Bus<E>, eventName: string | symbol, ...args: Parameters<E[K]>) {
 		const callbackInfoArr = this.#eventMap.get(eventName)
 		if (!callbackInfoArr) {
-			if (this.#sendWarn) {
-				this.#sendWarn('emitAwait', 'notExist', eventName, args)
-			} else {
-				logWarn(`event-imt(warn): eventName -> '${String(eventName)}' is not exist`)
-			}
+			this.#outputWarn('emitAwait', 'notExist', eventName, args)
 			return Promise.allSettled([])
 		}
 
@@ -266,9 +270,6 @@ export class Bus<E extends EventMapOption<E>> {
 						const result = await fn.call(this, ...args)
 						resolve(result)
 					} catch (error) {
-						if (this.#sendError) {
-							this.#sendError('emitAwait', 'execError', eventName, args)
-						}
 						reject(error)
 					}
 				})
@@ -308,11 +309,7 @@ export class Bus<E extends EventMapOption<E>> {
 	async emitLineUp<K extends keyof E>(this: Bus<E>, eventName: string | symbol, ...args: Parameters<E[K]>) {
 		const callbackInfoArr = this.#eventMap.get(eventName)
 		if (!callbackInfoArr) {
-			if (this.#sendWarn) {
-				this.#sendWarn('emitLineUp', 'notExist', eventName, args)
-			} else {
-				logWarn(`event-imt(warn): eventName -> '${String(eventName)}' is not exist`)
-			}
+			this.#outputWarn('emitLineUp', 'notExist', eventName, args)
 			return Promise.allSettled([])
 		}
 
@@ -366,11 +363,7 @@ export class Bus<E extends EventMapOption<E>> {
 	async emitLineUpCaptureErr<K extends keyof E>(this: Bus<E>, eventName: string | symbol, ...args: Parameters<E[K]>) {
 		const callbackInfoArr = this.#eventMap.get(eventName)
 		if (!callbackInfoArr) {
-			if (this.#sendWarn) {
-				this.#sendWarn('emitAwait', 'notExist', eventName, args)
-			} else {
-				logWarn(`event-imt(warn): eventName -> '${String(eventName)}' is not exist`)
-			}
+			this.#outputWarn('emitLineUpCaptureErr', 'notExist', eventName, args)
 			return Promise.allSettled([])
 		}
 
@@ -421,16 +414,6 @@ export class Bus<E extends EventMapOption<E>> {
 	 * @param ref 回调函数引用或回调标识
 	 */
 	off(eventName: string | symbol, ref: symbol | Callback): this {
-		const callbackInfoArr = this.#eventMap.get(eventName)
-		if (!callbackInfoArr) {
-			if (this.#sendWarn) {
-				this.#sendWarn('off', 'notExist', eventName as string | symbol, ref)
-			} else {
-				logWarn(`event-imt(warn): eventName -> '${String(eventName)}' is not exist`)
-			}
-			return this
-		}
-
 		let refField: 'sign' | 'fn'
 		if (isSymbol(ref)) {
 			refField = 'sign'
@@ -438,6 +421,12 @@ export class Bus<E extends EventMapOption<E>> {
 			refField = 'fn'
 		} else {
 			throw new TypeError('ref must be a symbol or function')
+		}
+
+		const callbackInfoArr = this.#eventMap.get(eventName)
+		if (!callbackInfoArr) {
+			this.#outputWarn('off', 'notExist', eventName, ref)
+			return this
 		}
 
 		let isExist = false
@@ -454,11 +443,7 @@ export class Bus<E extends EventMapOption<E>> {
 		}
 
 		if (!isExist) {
-			if (this.#sendWarn) {
-				this.#sendWarn('off', 'notExist', eventName as string | symbol, ref)
-			} else {
-				logWarn(`event-imt(warn): eventName -> '${String(eventName)}' is not exist`)
-			}
+			this.#outputWarn('off', 'notExist', eventName, ref)
 		}
 		return this
 	}
@@ -488,12 +473,7 @@ export class Bus<E extends EventMapOption<E>> {
 		}
 
 		if (!isExist) {
-			if (this.#sendWarn) {
-				this.#sendWarn('off', 'notExist', sign, sign)
-			} else {
-				logWarn(`event-imt(warn): eventName -> '${String(sign)}' is not exist`)
-			}
-			return this
+			this.#outputWarn('offBySign', 'notExist', sign)
 		}
 		return this
 	}
@@ -565,6 +545,7 @@ export class Bus<E extends EventMapOption<E>> {
 }
 
 export type * from './types/index.js'
+
 /**
  * @deprecated Please use named import { Bus } from 'event-imt' instead of default import
  * - 默认导出将在未来版本中移除
