@@ -414,6 +414,10 @@ export class Bus<E extends EventMapOption<E>> {
 	 * @param ref 回调函数引用或回调标识
 	 */
 	off(eventName: string | symbol, ref: symbol | Callback): this {
+		if (!isString(eventName) && !isSymbol(eventName)) {
+			throw new TypeError('eventName must be a string or symbol')
+		}
+
 		let refField: 'sign' | 'fn'
 		if (isSymbol(ref)) {
 			refField = 'sign'

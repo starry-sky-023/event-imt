@@ -92,7 +92,7 @@ export const defaultOutputWarn = ((from, type, eventNameOrRef, argsOfRef) => {
 				from,
 				type,
 				eventName: eventNameOrRef,
-				args: argsOfRef
+				argsOfRef
 			}
 		)
 	}
@@ -102,7 +102,7 @@ export const defaultOutputWarn = ((from, type, eventNameOrRef, argsOfRef) => {
 			from,
 			type,
 			eventName: eventNameOrRef,
-			args: argsOfRef
+			argsOfRef
 		})
 	} else {
 		outputWarn(
@@ -111,7 +111,7 @@ export const defaultOutputWarn = ((from, type, eventNameOrRef, argsOfRef) => {
 				from,
 				type,
 				eventName: eventNameOrRef,
-				args: argsOfRef
+				argsOfRef
 			}
 		)
 	}
