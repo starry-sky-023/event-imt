@@ -1,6 +1,6 @@
 {
 	"name": "event-imt",
-	"version": "0.2.7",
+	"version": "1.0.0-alpha.1",
 	"type": "module",
 	"sideEffects": false,
 	"types": "./dist/index.es.d.ts",
@@ -25,6 +25,7 @@
 		"event-imt",
 		"event",
 		"bus",
+		"hook",
 		"event-bus"
 	],
 	"repository": {

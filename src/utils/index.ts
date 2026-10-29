@@ -1,4 +1,4 @@
-import type { EventImtExecuteErrorCtx, OnExecuteErrorHandler, OnWarningHandler } from '../types/index.js'
+import type { OnEventWarningHandler, OnHookWarningHandler } from '../types/index.js'
 
 /**
  * 判断一个数据是否为数组
@@ -42,13 +42,19 @@ export function isUndefined(data: any): data is undefined {
 	return typeof data === 'undefined'
 }
 
+/**
+ * 格式化事件名, 非 string/symbol 类型将强制转换为字符串
+ */
+export function formatName(name: string | symbol): string | symbol {
+	return isString(name) || isSymbol(name) ? name : String(name)
+}
+
 const log = (() => {
 	if (typeof console !== 'undefined') {
 		return console
 	} else {
 		return {
-			warn(..._data: any[]) {},
-			error(..._data: any[]) {}
+			warn(..._data: any[]) {}
 		}
 	}
 })()
@@ -58,61 +64,68 @@ export function outputWarn(...data: any[]) {
 	log.warn(...data)
 }
 
-export class EventImtExecuteError extends Error {
-	name: string = 'EventImtExecuteError'
-	ctx: EventImtExecuteErrorCtx
+/** 默认的警告处理器, 事件不存在或 ref 类型有误时输出警告 */
+export const eventDefaultOutputWarn: OnEventWarningHandler = (from, ctx) => {
+	const { type, name, ref } = ctx as { type?: string; name?: string | symbol; ref?: unknown }
 
-	constructor(message: string, ctx: EventImtExecuteErrorCtx) {
-		super(message)
-		this.ctx = ctx
+	if (type === 'typeError') {
+		outputWarn(
+			`event(${from}): the ref${
+				isUndefined(name) ? '' : ` of event -> '${String(name)}'`
+			} has an invalid type, detail info in ctx property .`,
+			{ from, ctx }
+		)
+		return
 	}
+
+	if (type === 'error') {
+		outputWarn(
+			`event(${from}): exec event callback of event -> '${String(name)}' failed, detail info in ctx property .`,
+			{ from, ctx }
+		)
+		return
+	}
+
+	if (!isUndefined(ref)) {
+		outputWarn(
+			`event(${from}): ref -> ${String(ref)} to event '${String(name)}' is not found, detail info in ctx property .`,
+			{ from, ctx }
+		)
+		return
+	}
+
+	outputWarn(`event(${from}): event -> '${String(name)}' is not found, detail info in ctx property .`, { from, ctx })
 }
 
-export function defaultOutputError(
-	from: Parameters<OnExecuteErrorHandler>[0],
-	type: Parameters<OnExecuteErrorHandler>[1],
-	eventName: Parameters<OnExecuteErrorHandler>[2],
-	args: Parameters<OnExecuteErrorHandler>[3],
-	error: Parameters<OnExecuteErrorHandler>[4]
-) {
-	throw new EventImtExecuteError(`event-imt(${from}): exec event callback failed, detail info in ctx property .`, {
-		from,
-		type,
-		eventName,
-		args,
-		error
-	})
-}
+/** 默认的警告处理器, hook 不存在或 ref 类型有误时输出警告 */
+export const hookDefaultOutputWarn: OnHookWarningHandler = (from, ctx) => {
+	const { type, name, ref } = ctx as { type?: string; name?: string | symbol; ref?: unknown }
 
-export const defaultOutputWarn = ((from, type, eventNameOrRef, argsOfRef) => {
-	if (from === 'off') {
+	if (type === 'typeError') {
 		outputWarn(
-			`event-imt(${from}): ref -> ${String(argsOfRef)} to '${String(eventNameOrRef)}' is not found, detail info in ctx property .`,
-			{
-				from,
-				type,
-				eventName: eventNameOrRef,
-				argsOfRef
-			}
+			`hook(${from}): the ref${
+				isUndefined(name) ? '' : ` of hook -> '${String(name)}'`
+			} has an invalid type, detail info in ctx property .`,
+			{ from, ctx }
 		)
+		return
 	}
-	// @ts-ignore
-	else if (from === 'offBySign') {
-		outputWarn(`event-imt(${from}): ref -> ${String(argsOfRef)} is not found, detail info in ctx property .`, {
-			from,
-			type,
-			eventName: eventNameOrRef,
-			argsOfRef
-		})
-	} else {
+
+	if (type === 'error') {
 		outputWarn(
-			`event-imt(${from}): event -> '${String(eventNameOrRef)}' is not found, detail info in ctx property .`,
-			{
-				from,
-				type,
-				eventName: eventNameOrRef,
-				argsOfRef
-			}
+			`hook(${from}): exec hook callback of hook -> '${String(name)}' failed, detail info in ctx property .`,
+			{ from, ctx }
 		)
+		return
 	}
-}) as OnWarningHandler
+
+	if (!isUndefined(ref)) {
+		outputWarn(
+			`hook(${from}): ref -> ${String(ref)} to hook '${String(name)}' is not found, detail info in ctx property .`,
+			{ from, ctx }
+		)
+		return
+	}
+
+	outputWarn(`hook(${from}): hook -> '${String(name)}' is not found, detail info in ctx property .`, { from, ctx })
+}
