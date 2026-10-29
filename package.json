@@ -37,6 +37,7 @@
 	"license": "MIT",
 	"scripts": {
 		"test": "vitest",
+		"test:run": "vitest run",
 		"dev": "cross-env VITE_APP_PATH=./tests/index.ts vite",
 		"build": "cross-env VITE_APP_PATH=./src/index.ts vite build",
 		"preview": "cross-env VITE_APP_PATH=./src/index.ts vite preview"
