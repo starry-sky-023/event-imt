@@ -1,0 +1,171 @@
+name: Test, tag and publish
+
+on:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-master
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          version: 9
+
+      - name: Install Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run unit tests
+        run: pnpm test -- --run
+
+  create-tag:
+    name: Create release tag
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Resolve release tag
+        id: release_tag
+        shell: bash
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          TAG_NAME="v${PACKAGE_VERSION}"
+
+          echo "package_version=$PACKAGE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Check existing tag
+        id: tag_check
+        shell: bash
+        run: |
+          TAG_NAME="${{ steps.release_tag.outputs.tag_name }}"
+
+          if git ls-remote --tags origin "refs/tags/${TAG_NAME}" | grep -q "refs/tags/${TAG_NAME}$"; then
+            echo "should_create=false" >> "$GITHUB_OUTPUT"
+            echo "Tag ${TAG_NAME} already exists, skipping creation."
+          else
+            echo "should_create=true" >> "$GITHUB_OUTPUT"
+            echo "Tag ${TAG_NAME} does not exist yet."
+          fi
+
+      - name: Create and push tag
+        if: steps.tag_check.outputs.should_create == 'true'
+        shell: bash
+        run: |
+          TAG_NAME="${{ steps.release_tag.outputs.tag_name }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "$TAG_NAME"
+          git push origin "$TAG_NAME"
+
+  publish-npm:
+    name: Publish npm package
+    if: github.repository == 'starry-sky-023/event-imt'
+    needs: [test, create-tag]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          version: 9
+
+      - name: Install Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Update npm
+        run: npm install --global npm@latest
+
+      - name: Build package
+        run: pnpm build
+
+      - name: Validate release tag
+        shell: bash
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          TAG_NAME="v${PACKAGE_VERSION}"
+
+          if ! git ls-remote --tags origin "refs/tags/${TAG_NAME}" | grep -q "refs/tags/${TAG_NAME}$"; then
+            echo "Expected release tag ${TAG_NAME} was not found on origin."
+            exit 1
+          fi
+
+      - name: Check package version
+        id: package
+        shell: bash
+        run: |
+          version=$(node -p "require('./package.json').version")
+          versions=$(npm view event-imt versions --json 2>/dev/null || echo '[]')
+          tag=$(VERSION="$version" node -e "
+            const version = process.env.VERSION
+            const separator = version.indexOf('-')
+            if (separator === -1) {
+              process.stdout.write('latest')
+            } else {
+              const identifier = version.slice(separator + 1).split('+')[0].split('.')[0]
+              process.stdout.write(/^(?:v|[0-9])/i.test(identifier) ? 'next' : identifier)
+            }
+          ")
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "event-imt@${version} will use npm dist-tag ${tag}."
+
+          if VERSION="$version" VERSIONS="$versions" node -e "
+            const versions = JSON.parse(process.env.VERSIONS)
+            const list = Array.isArray(versions) ? versions : [versions]
+            process.exit(list.includes(process.env.VERSION) ? 0 : 1)
+          "; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "event-imt@${version} already exists; skipping npm publish."
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish package
+        if: steps.package.outputs.publish == 'true'
+        run: npm publish --access public --provenance --tag "${{ steps.package.outputs.tag }}"
